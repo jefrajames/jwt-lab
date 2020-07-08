@@ -39,7 +39,7 @@ In option, it is possible to check the audience claim by setting the mpJwt eleme
 ----
 === Application configuration
 
-MicroProfile JWT must be configured in microprofile-config.properties:
+MicroProfile JWT is configured in microprofile-config.properties:
 [source,property]
 ----
 mp.jwt.verify.publickey.location=/META-INF/resources/publicKey.pem
@@ -89,6 +89,4 @@ The JAX-RS application class must be annotated with org.eclipse.microprofile.aut
 
 * mp.jwt.verify.publickey is not supported
 * mp.jwt.verify.issuer is required (in contrast to Quarkus and Wildfly which just ignores the issuer check).
-
-Enjoy!
 
