@@ -1,0 +1,28 @@
+<server description="Sample Open Liberty server">
+
+  <featureManager>
+    <feature>jaxrs-2.1</feature>
+    <feature>mpConfig-1.3</feature>
+    <feature>mpJwt-1.1</feature>
+    <feature>mpOpenAPI-1.1</feature>
+    <!-- Arquillian specific -->
+    <feature>localConnector-1.0</feature>
+    <feature>servlet-4.0</feature>
+     
+  </featureManager>
+
+  <variable name="default.http.port" defaultValue="9080"/>
+  <variable name="default.https.port" defaultValue="9443"/>
+  <variable name="app.context.root" defaultValue="/"/>
+
+  <httpEndpoint host="*" httpPort="${default.http.port}" httpsPort="${default.https.port}" id="defaultHttpEndpoint"/>
+  
+  <keyStore id="defaultKeyStore" password="OpenLiberty" />
+  
+  <logging traceSpecification="org.jefrajames.jwtlab.*=all" />
+
+  <webApplication location="jwtdemo.war" contextRoot="${app.context.root}"/>
+  
+  <mpJwt id="myMpJwt" audiences="jwtlab" />
+  
+</server>

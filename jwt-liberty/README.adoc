@@ -1,0 +1,94 @@
+== MicroProfile JWT on Open Liberty
+
+This demo project illustrates how to secure a REST API on Open Liberty with MicroProfile JWT.
+
+=== Maven configuration
+
+A generic dependency on MicroProfile is sufficient:
+[source,xml]
+----
+<dependency>
+    <groupId>org.eclipse.microprofile</groupId>
+    <artifactId>microprofile</artifactId>
+    <version>3.3</version>
+    <type>pom</type>
+    <scope>provided</scope>
+</dependency>
+----
+
+The implementation is provided by Liberty.
+
+=== Liberty Configuration
+
+To ebable MicroProfile JWT, the feature must be declared in server.xml:
+[source,xml]
+----
+ <feature>mpJwt-1.1</feature>
+----
+
+To enable application logs (written in trace.log):
+[source,xml]
+----
+<logging traceSpecification="org.jefrajames.jwtlab.*=all" />
+----
+
+In option, it is possible to check the audience claim by setting the mpJwt element
+[source,xml]
+----
+<mpJwt id="myMpJwt" audiences="jwtlab" />
+----
+=== Application configuration
+
+MicroProfile JWT must be configured in microprofile-config.properties:
+[source,property]
+----
+mp.jwt.verify.publickey.location=/META-INF/resources/publicKey.pem
+mp.jwt.verify.issuer=jefrajames
+----
+mp.jwt.verify.publickey.location defines the location of the file wich contains the public key of the token issuer.
+
+This file must be provided in PEM format:
+[source,pem]
+----
+-----BEGIN PUBLIC KEY-----
+Base64 encoded public key value here.
+-----END PUBLIC KEY-----
+----
+According to my tests, providing directly the public key value in microprofile-config.properties with mp.jwt.verify.publickey is not supported by Liberty. 
+
+=== Coding
+
+==== JAX-RS Application class
+
+The JAX-RS application class must be annotated with org.eclipse.microprofile.auth.LoginConfig:
+[source,Java]
+----
+@LoginConfig(authMethod = "MP-JWT")
+----
+
+=== Playing around
+
+* To install Liberty in the project: mvn liberty:create
+* To run Liberty in dev mode (with hot reload) : mvn liberty:dev. This also installs Liberty the first time it is run
+* There are 2 options to run the Junit Tests: 
+.. mvn test
+.. type ENTER in the terminal where mvn liberty:dev is  running
+* The main app URL is http://localhost:8080/api/hello/
+* To curl against the app: curl.sh, curl.sh secured, curl.sh forbidden, curl.sh myclaim
+* To access Swagger UI: http://localhost:9080/openapi/ui/
+
+
+=== Which HTTP response code?
+
+* Expired token: 401 (Unauthorized)
+* Role not allowed: 401 (Unauthorized) vs 403 (Forbidden) for Quarkus and Wildfly
+* Issuer mismatch: 401 (Unauthorized)
+* Audience mismatch: 401 (Unauthorized)
+
+=== Liberty tricks
+
+* mp.jwt.verify.publickey is not supported
+* mp.jwt.verify.issuer is required (in contrast to Quarkus and Wildfly which just ignores the issuer check).
+
+Enjoy!
+

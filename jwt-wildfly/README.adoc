@@ -1,0 +1,85 @@
+== MicroProfile JWT on Wildfly
+
+This demo project illustrates how to secure a REST API on Wildfly with MicroProfile JWT.
+
+=== Maven configuration
+
+A generic dependency on MicroProfile is sufficient:
+[source,xml]
+----
+<dependency>
+    <groupId>org.eclipse.microprofile</groupId>
+    <artifactId>microprofile</artifactId>
+    <version>3.3</version>
+    <type>pom</type>
+    <scope>provided</scope>
+</dependency>
+----
+The implementation is provided with Wildfly.
+
+swagger-ui is not provided by Wildfly and must be declared as a runtime dependency:
+[source,xml]
+----
+ <dependency>
+    <groupId>io.smallrye</groupId>
+    <artifactId>smallrye-open-api-ui</artifactId>
+    <version>2.0.2</version>
+    <scope>runtime</scope>
+</dependency>
+----
+
+=== Wildfly configuration
+
+MicroProfile is enabled with standalone-microprofile.xml configuration.
+
+=== Application configuration
+
+==== web.xml
+To enable MP JWT, resteasy.role.based.security must be set to true in web.xml:
+[source,xml]
+----
+<context-param>
+  <param-name>resteasy.role.based.security</param-name>
+  <param-value>true</param-value>
+</context-param>
+----
+
+Warning: if this property is not to true, all methods exposed by REST endpoints are accessible without any security check. There is no deployment error. There is a risk of inadvertently exposing secured endpoints.
+
+==== microprofile-config.properties
+The public key and the token issuer must be declared:
+[source,text]
+----
+mp.jwt.verify.publickey=<public key value here>
+mp.jwt.verify.issuer=jefrajames
+----
+
+Setting mp.jwt.verify.issuer is optional: if not defined, the issuer claim is not checked on incoming tokens.
+
+=== Coding
+
+The JAX-RS application class must be annotated with org.eclipse.microprofile.auth.LoginConfig:
+[source,Java]
+----
+@LoginConfig(authMethod = "MP-JWT")
+----
+If you forget it: an obscure NoClassDefFoundError related to  org.eclipse.microprofile.jwt.JsonWebToken is generated.
+
+
+=== Playing around
+
+. To install WildFly in the  roject: mvn wildfly:run -DskipTests
+. To run the Junit Tests (Arquillian managed mode): mvn test
+. To run Wildfly server and the application: mvn wildly:run
+. The main app URL is http://localhost:8080/jwt-demo/api/hello/
+. To curl against a running server: curl.sh, curl.sh secured, curl.sh forbidden, curl.sh myclaim
+. To access Swagger UI: http://localhost:8080/jwtdemo/openapi-ui/
+
+=== Which HTTP response code?
+
+* Expired token : 401 (Unauthorized)
+* Role not allowed: 403 (Forbidden)
+* Issuer mismatch: 401 (Unauthorized)
+* No token when calling a secured method: 403 (Forbidden)
+
+

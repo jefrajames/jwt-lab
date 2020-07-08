@@ -1,0 +1,178 @@
+== MicroProfile JWT in action
+
+=== Goals
+This project illustrates how to use MicroProfile JSON Web Token (MP JWT) to secure REST APIs. It makes use of https://github.com/AdamBien/jwtenizr[JWTenizr] to generate tokens and is currently implemented on https://wildfly.org/[WildFly], https://quarkus.io/get-started/[Quarkus] and https://openliberty.io/[Open Liberty].
+It can be extended to other MicroProfile runtimes such as https://www.payara.fish/[Payara], https://tomee.apache.org/[TomEE] and https://ee.kumuluz.com/[KumuluzEE] without problem.
+
+A basic knowledge of MP JWT is needed and, if you don't feel comfortable with that, I invite you to read https://www.tomitribe.com/blog/microprofile-json-web-token-jwt/[MicroProfile JSON Web Token] written by my friend Jean-Louis Monteiro from Tomitribe.
+
+
+=== Technical context
+The project has been developed in the following context:
+
+* OpenJDK Runtime Environment AdoptOpenJDK (build 11.0.7+10)
+* GraalVM 19.3.1 (for Quarkus Native)
+* Wildfly 20.0.0.Final
+* Quarkus 1.5.0.Final
+* OpenLiberty 20.0.0.7
+* JWTenizr 0.0.4-SNAPSHOT.
+
+=== Project structure
+The project is made of 3 independent modules.
+Each one is dedicated to a runtime: Quarkus, WildFly, Liberty.
+
+To keep it simple, there is deliberately nothing in common between these modules. This enables to adapt the code and the configuration with flexibility. Keep in mind that despite being based on a standard, there are some specificities when it comes to concrete implementation! As we say, the evil in the details ...
+However I've tried to make them as close as possible.
+
+Each project has a JAX-RS resource class named GreetingResource that exposes a (very) simple REST API.  It has 4 methods, all of them returning a String value:
+
+* hello: permitted to everybody
+* securedHello: restricted to users with the duke role
+* forbidden: restricted to users with the root role
+* getMyClaim: return the value of a custom claim.
+
+The API is documented using OpenAPI and exposed with swagger-ui.
+
+As can be seen in the code, MP JWT programming model is fairly easy. 
+It is based on annotations (@DenyAll, @PermitAll, @RolesAllowed) and CDI to inject data coming from the token.
+
+It is worth mentioning that JAX-RS resource classes must be @RequestScoped (vs @ApplicationScoped).
+
+There is also a test class named GreetingResourceTest acting as a REST client, based on RestAssured. It is run with Arquillian for Widlfly and Liberty.
+
+For Quarkus, no need of Arquillian:
+
+. The @QuarkusTest annotation is sufficient
+. No ShrinkWrap deployment is needed.
+
+Ease of test is a real bonus with Quarkus!
+
+=== A few words about MicroProfile JWT
+In a nutshell, MicroProfile JWT enables to secure REST APIs in a scalable and stateless way. 
+The principle is to provide a token (a kind of proof of identity) for each HTTP request.
+This token is self-contained: it contains authorization and authentication data as well as a signature to check its integrity and authenticity.
+
+Reminder:
+
+. A token is signed by an issuer using its private key
+. The signature can be checked by third parties using the public key of the issuer.
+
+==== Anatomy of a JWT Token
+A token is made of 3 parts:
+[source,text]
+----
+<header>.<body>.<signature>
+----
+The body part is made of claims. A claim is a <key,value> pair. Some claims are standard; custom ones can be defined to transport additional information.
+
+MP JWT introduces 2 specific claims:
+
+. upn (User Principal Name): uniquely identifies the subject or user principal of the token. On the server-side, this information can be retrieved as the name property of the Principal and the JsonWebToken
+. groups: the subject's group memberships that will be mapped to roles on the server-side. Typically, secured methods in JAX-RS class ressources are annotated with @RolesAllowed.
+
+
+=== Using JWTenizr
+
+https://github.com/AdamBien/jwtenizr[JWTenizr] is an open source library proposed by Adam Bien. It generates a JWT token and an appropriate MicroProfile configuration based on 2 input files: 
+
+. A configuration file named jwtenizr-config.json which defines the key pair (public/private), the token issuer and the location to generate microprofile-config.properties
+. A template file named jwt-token.json which defines the content of the token body.
+[source,]
+----
+
+jwtenizr-config.json        jwt-token.json
+        |                          |
+        ––––––––––      ––––––––––––
+                 |      |
+                 v      v
+            ––––––––––––––––––
+            |    JWTEnizr    |
+            ––––––––––––––––––
+                 |      |
+           –––––––       –––––––––––––
+           |                         |
+           v                         v
+microprofile-config.properties    token.jwt 
+
+----
+In this video https://www.adam-bien.com/roller/abien/entry/json_web_token_generator_jwtenizr[Securing JAX-RS Endpoint with JWT], Adam Bien demonstrates how to use it with Quarkus.
+
+A token has a limited lifespan (15 minutes with JWTenizr). To avoid token expiration during tests, JWTenizr is called at the beginning of JUnit tests in order to use a fresh token.
+
+To that end, JWTenizr is defined in pom.xml as a test dependency. Since it is not available on Maven Central, it must be installed in your local m2 repo:
+
+. Download JWTenizr from https://github.com/AdamBien/jwtenizr[GitHub]
+. Install it locally by running __mvn install__.
+
+==== jwtenizr-config.json
+This is the main configuration file:
+[source,json]
+----
+{
+    "mpConfigIssuer": "jefrajames",
+    "mpConfigurationFolder": "src/main/resources/META-INF",
+    "privateKey": "private key value here",
+    "publicKey": "public key value here"
+}
+----
+
+Note: for Quarkus and Liberty, mpConfigurationFolder can't be directly generated in src/main/resources/META-INF.
+
+==== jwt-token.json
+This template file defines the content of the body token in the form of claims:
+[source,json]
+----
+{"iss":"jefrajames","jti":"42","sub":"jf","upn":"james","groups":["chief","hacker","duke"],"myclaim":"customValue"}
+----
+In this example, 4 of them are of specific relevance:
+
+. iss: which defines the issuer of the token, this value can optionally be controlled by the endpoint
+. upn: which defines the User Principal Name
+. groups: which defines the groups/roles the user belongs to
+. myclaim: is a custom claim.
+
+==== Testing with curl
+To facilitate the use of curl, each project has a specific curl.sh script that uses the last generated token (from token.jwt) and targets the specific URL.
+
+When run without argument, curl.sh calls the default hello endpoint.
+Just add an argument to call other endpoints:
+
+* curl.sh secured
+* curl.sh forbidden
+* curl.sh myclaim.
+
+
+
+=== Before going to production
+
+==== Impact on performance
+
+Using MP JWT can impact performance in several ways:
+
+. It increases the size of HTTP requests. According to my tests, the size of a token is around 600 bytes
+. On the server-side, it requires JAX-RS ressource classes to be @RequestScoped (vs @ApplicationScoped): hence these classes are not reusable, a new instance is created per request which adds some overhead
+. The signature is checked for each request to validate the token.
+
+In most cases, the performance degradation is acceptable, but should be kept in mind: don't be surprised to measure a degradation!
+
+==== Improving security
+
+A JWT token Base64 encoded. Being Base64 encoded doesn't mean that it is cyphered. A "man in the middle" attack enables to steel and reuse it. This risk can be mitigated in two ways:
+
+. By limiting the tokens lifespan: a tradeoff must be strike between performance and security. To make it simple: small values favor security while high values favor performance
+. By using HTTPS as transport layer: in this way a ciphered communication channel is established between clients and servers preventing tokens to be stolen and reused.
+
+Needless to say that in production, both are recommended.
+
+==== Using a Public Key Infrastucture (PKI)
+
+MP JWT is based on RSA algorithms using public/private key pairs. Public key distribution and renewall must be taken into account using a PKI.
+
+==== Using an Identity & Access Management (IAM)
+
+JWTenizr is a nice tool in Devevelopment. Using an IAM such as Keycloak in Production is a must.
+
+Here are 2 articles explaining how to configure WildFly and OpenLiberty with Keycloack:
+
+* http://www.mastertheboss.com/javaee/eclipse-microservices/using-jwt-role-based-access-control-with-wildfly[Using JWT Role Based Access Control with WildFly]
+* https://suedbroecker.net/2020/06/30/getting-started-to-secure-a-java-microservice-with-keycloak-microprofile-and-openliberty/[Getting started to secure a simple Java Microservice With Keycloak, MicroProfile and OpenLiberty]
