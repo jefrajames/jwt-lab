@@ -22,7 +22,7 @@ The project has been developed in the following context:
 The project is made of 3 independent modules.
 Each one is dedicated to a runtime: Quarkus, WildFly, Liberty.
 
-To keep it simple, there is deliberately nothing in common between these modules. This enables to adapt the code and the configuration with flexibility. Keep in mind that despite being based on a standard, there are some specificities when it comes to concrete implementation! As we say, the evil in the details ...
+To keep it simple, there is deliberately nothing in common between these modules. This enables to adapt the code and the configuration with flexibility. Bear in mind that despite being based on a standard, there are some differences when it comes to concrete implementation! As we say, the evil in the details ...
 However I've tried to make them as close as possible.
 
 Each project is made of a JAX-RS resource class named GreetingResource that exposes a (very) simple REST API.  It has 4 methods, all of them returning a String value:
@@ -160,7 +160,7 @@ A JWT token is Base64 encoded. Being Base64 encoded doesn't mean that it is cyph
 
 Needless to say that in production, both are recommended.
 
-==== Using a Public Key Infrastucture (PKI)
+==== Using a Public Key Infrastructure (PKI)
 
 MP JWT is based on RSA algorithms using public/private key pairs. Public key distribution and renewall must be taken into account using a PKI.
 
@@ -172,3 +172,7 @@ Here are 2 articles explaining how to configure WildFly and OpenLiberty with Key
 
 * http://www.mastertheboss.com/javaee/eclipse-microservices/using-jwt-role-based-access-control-with-wildfly[Using JWT Role Based Access Control with WildFly]
 * https://suedbroecker.net/2020/06/30/getting-started-to-secure-a-java-microservice-with-keycloak-microprofile-and-openliberty/[Getting started to secure a simple Java Microservice With Keycloak, MicroProfile and OpenLiberty]
+
+=== Conclusion
+
+This project allowed me to see that, despite some implementation differences, it is possible to secure JAX-RS APIs in a simple and consistent way with MP JWT. I've really appreciated the ease of use of JWTenizr in development. I hope it will help you!
