@@ -93,7 +93,7 @@ microprofile-config.properties    token.jwt
 ----
 In this video https://www.adam-bien.com/roller/abien/entry/json_web_token_generator_jwtenizr[Securing JAX-RS Endpoint with JWT], Adam Bien demonstrates how to use it with Quarkus.
 
-A token has a limited lifespan (15 minutes with JWTenizr). To avoid token expiration during tests, JWTenizr is called at the beginning of JUnit tests in order to generate a fresh token.
+A token has a limited lifespan (15 minutes with JWTenizr). To avoid token expiration during tests, the token exp claim is checked from token.jwt, and if required JWTenizr is called at the beginning of JUnit tests to regenerate a new one.
 
 To that end, JWTenizr is defined in pom.xml as a test dependency. Since it is not available on Maven Central, it must be installed in your local Maven repo:
 

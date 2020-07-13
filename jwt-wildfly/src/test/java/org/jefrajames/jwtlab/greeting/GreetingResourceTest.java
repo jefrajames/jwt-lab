@@ -1,15 +1,19 @@
 package org.jefrajames.jwtlab.greeting;
 
-
-import org.jefrajames.jwtlab.greeting.GreetingResource;
 import com.airhacks.jwtenizr.boundary.Flow;
 import io.restassured.RestAssured;
 import static io.restassured.RestAssured.given;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Base64;
+import javax.json.Json;
 import lombok.extern.java.Log;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -32,8 +36,8 @@ import org.junit.runner.RunWith;
 public class GreetingResourceTest {
 
     private static String token;
-    
-    private static void jwtenizrRun() {
+
+    private static void regenerateToken() {
         try {
             Flow.generateToken(null);
         } catch (Exception ex) {
@@ -41,12 +45,33 @@ public class GreetingResourceTest {
         }
     }
 
+    private static LocalDateTime getTokenExp(String lastToken) {
+        String[] tokenParts = lastToken.split("\\.");
+        if (tokenParts.length != 3) {
+            throw new IllegalArgumentException("Token format NOK");
+        }
+
+        String payload = new String(Base64.getDecoder().decode(tokenParts[1]));
+        int exp = Json.createReader(new StringReader(payload)).readObject().getInt("exp");
+
+        return LocalDateTime.ofInstant(Instant.ofEpochSecond(exp), ZoneId.systemDefault());
+    }
+
+    private static boolean isTokenExpired(String lastToken) {
+        return getTokenExp(lastToken).isBefore(LocalDateTime.now());
+    }
+
     @BeforeClass
     public static void beforeAll() throws IOException, Exception {
-        jwtenizrRun();
-        token = new String(Files.readAllBytes(Paths.get("token.jwt")));
+        String lastToken = new String(Files.readAllBytes(Paths.get("token.jwt")));
+        if (isTokenExpired(lastToken)) {
+            regenerateToken();
+            token = new String(Files.readAllBytes(Paths.get("token.jwt")));
+        } else {
+            token = lastToken;
+        }
     }
-    
+
     @ArquillianResource
     private URL baseURL;
 
@@ -76,9 +101,9 @@ public class GreetingResourceTest {
 
     @Test
     public void testHelloEndpoint() {
-        
+
         RestAssured.baseURI = baseURL.toString();
-        
+
         given()
                 .when().get("api/hello")
                 .then()
@@ -113,17 +138,17 @@ public class GreetingResourceTest {
     @Test
     public void testForbiddenEndpoint() {
         RestAssured.baseURI = baseURL.toString();
-        
+
         given()
                 .when().get("api/hello/forbidden")
                 .then()
                 .statusCode(403); // Forbidden
     }
-    
+
     @Test
     public void testMyClaim() {
         RestAssured.baseURI = baseURL.toString();
-        
+
         given()
                 .when()
                 .auth().preemptive().oauth2(token)
